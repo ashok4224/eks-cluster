@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------
 
 environment     = "prod"
-assume_role_arn = "arn:aws:iam::REPLACE_ME_PROD_ACCOUNT_ID:role/TerraformRole"
 aws_region      = "us-east-1"
 cluster_name    = "eks-prod"
 cluster_version = "1.30"

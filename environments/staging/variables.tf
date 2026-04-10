@@ -3,11 +3,6 @@ variable "environment" {
   type        = string
 }
 
-variable "assume_role_arn" {
-  description = "IAM role ARN to assume for this environment (e.g. arn:aws:iam::ACCOUNT_ID:role/TerraformRole)"
-  type        = string
-}
-
 variable "aws_region" {
   description = "AWS region to deploy the cluster into"
   type        = string

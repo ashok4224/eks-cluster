@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------
 
 environment     = "staging"
-assume_role_arn = "arn:aws:iam::REPLACE_ME_STAGING_ACCOUNT_ID:role/TerraformRole"
 aws_region      = "us-east-1"
 cluster_name    = "eks-staging"
 cluster_version = "1.30"

@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------
 
 environment     = "dev"
-assume_role_arn = "arn:aws:iam::060795934873:role/TerraformRole"
 aws_region      = "ap-south-1"
 cluster_name    = "eks-dev"
 cluster_version = "1.30"
