@@ -1,0 +1,35 @@
+# Terraform state & cache
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+
+# Sensitive variable files — never commit credentials
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Crash logs
+crash.log
+crash.*.log
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Scripts output
+*.log
+
+# IAM trust policy temp files (created during setup)
+trust-policy-github.json
+trust-policy-terraform.json
+assume-terraform-role.json

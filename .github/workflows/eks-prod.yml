@@ -1,0 +1,148 @@
+name: "EKS · Prod"
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "environments/prod/**"
+      - "modules/**"
+      - ".github/workflows/eks-prod.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "environments/prod/**"
+      - "modules/**"
+
+env:
+  TF_VERSION:  "1.7.5"
+  AWS_REGION:  "us-east-1"
+  WORKING_DIR: "environments/prod"
+
+jobs:
+  # ------------------------------------------------------------------
+  # Job 1: Plan (runs on every push and PR)
+  # ------------------------------------------------------------------
+  plan:
+    name: "Plan — prod"
+    runs-on: ubuntu-latest
+    environment: prod-plan   # no approval gate on plan
+
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    outputs:
+      plan_outcome: ${{ steps.plan.outcome }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format check
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -out=tfplan -input=false -no-color
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-prod
+          path: ${{ env.WORKING_DIR }}/tfplan
+          retention-days: 1
+
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `### Terraform Plan · \`prod\`
+            | Step | Result |
+            |------|--------|
+            | fmt  | \`${{ steps.fmt.outcome }}\` |
+            | init | \`${{ steps.init.outcome }}\` |
+            | validate | \`${{ steps.validate.outcome }}\` |
+            | plan | \`${{ steps.plan.outcome }}\` |
+
+            *Actor: @${{ github.actor }} — Event: \`${{ github.event_name }}\`*
+            > **Manual approval required before apply.**`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  # ------------------------------------------------------------------
+  # Job 2: Apply (requires manual approval via GitHub Environment)
+  # Configure "prod" environment in GitHub → Settings → Environments
+  # and add required reviewers there.
+  # ------------------------------------------------------------------
+  apply:
+    name: "Apply — prod"
+    runs-on: ubuntu-latest
+    environment: prod          # <-- approval gate lives here
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      id-token: write
+      contents: read
+
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-prod
+          path: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
